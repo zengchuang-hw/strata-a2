@@ -73,7 +73,11 @@ def _launch(query, key, cos, sin, heads_per_tile, round_bf16):
 
 
 def paired_rotary(query, key, cos, sin, *, round_bf16=False):
-    return _launch(query, key, cos, sin, 4, round_bf16)
+    # In-graph replay cost (bench/rope_bench.py): at rows >= 16 the wide tile
+    # halves program count and beats the narrow tile at every measured shape;
+    # below 16 rows the iteration-002 width keeps C1-C8 graphs byte-identical.
+    rows = query.shape[0] * query.shape[1]
+    return _launch(query, key, cos, sin, 16 if rows >= 16 else 4, round_bf16)
 
 
 def paired_rotary_width(query, key, cos, sin, *, heads_per_tile, round_bf16=False):
