@@ -10,8 +10,9 @@ import triton.language as tl
 
 @triton.jit
 def _rotate_one(X, C, S, Y, row, tile, H: tl.constexpr, D: tl.constexpr,
-                LENGTH: tl.constexpr, SHARED: tl.constexpr, ROUND_BF16: tl.constexpr):
-    heads = tile * 4 + tl.arange(0, 4)[:, None]
+                LENGTH: tl.constexpr, SHARED: tl.constexpr, ROUND_BF16: tl.constexpr,
+                HPT: tl.constexpr):
+    heads = tile * HPT + tl.arange(0, HPT)[:, None]
     dims = tl.arange(0, D // 2)[None, :]
     base = (row * H + heads) * D + dims
     mask = heads < H
@@ -36,19 +37,19 @@ def _rotate_one(X, C, S, Y, row, tile, H: tl.constexpr, D: tl.constexpr,
 @triton.jit
 def _paired(Q, K, C, S, QO, KO, HQ: tl.constexpr, HK: tl.constexpr,
             D: tl.constexpr, LENGTH: tl.constexpr, ROWS: tl.constexpr,
-            SHARED: tl.constexpr, ROUND_BF16: tl.constexpr):
-    qtiles: tl.constexpr = triton.cdiv(HQ, 4)
-    tiles: tl.constexpr = qtiles + triton.cdiv(HK, 4)
+            SHARED: tl.constexpr, ROUND_BF16: tl.constexpr, HPT: tl.constexpr):
+    qtiles: tl.constexpr = triton.cdiv(HQ, HPT)
+    tiles: tl.constexpr = qtiles + triton.cdiv(HK, HPT)
     for task in range(tl.program_id(0), ROWS * tiles, tl.num_programs(0)):
         row = task // tiles
         tile = task % tiles
         if tile < qtiles:
-            _rotate_one(Q, C, S, QO, row, tile, HQ, D, LENGTH, SHARED, ROUND_BF16)
+            _rotate_one(Q, C, S, QO, row, tile, HQ, D, LENGTH, SHARED, ROUND_BF16, HPT)
         else:
-            _rotate_one(K, C, S, KO, row, tile - qtiles, HK, D, LENGTH, SHARED, ROUND_BF16)
+            _rotate_one(K, C, S, KO, row, tile - qtiles, HK, D, LENGTH, SHARED, ROUND_BF16, HPT)
 
 
-def paired_rotary(query, key, cos, sin, *, round_bf16=False):
+def _launch(query, key, cos, sin, heads_per_tile, round_bf16):
     if (query.ndim != 4 or key.ndim != 4 or query.shape[:2] != key.shape[:2]
             or query.shape[-1] != key.shape[-1] or query.shape[-1] not in (64, 128)
             or query.shape[2] not in (8, 16) or key.shape[2] not in (8, 16)):
@@ -59,13 +60,29 @@ def paired_rotary(query, key, cos, sin, *, round_bf16=False):
     if any(t.dtype != torch.bfloat16 or t.device != query.device or not t.is_contiguous()
            for t in (query, key, cos, sin)) or query.device.type != "npu":
         raise ValueError("contiguous matching BF16 NPU tensors required")
+    if not 1 <= heads_per_tile <= 16:
+        raise ValueError("heads_per_tile must be 1..16")
     qout, kout = torch.empty_like(query), torch.empty_like(key)
-    tiles = triton.cdiv(heads, 4) + triton.cdiv(key.shape[2], 4)
+    tiles = triton.cdiv(heads, heads_per_tile) + triton.cdiv(key.shape[2], heads_per_tile)
     cores = torch.npu.get_device_properties(query.device).vector_core_num
     _paired[(min(cores, batch * length * tiles),)](
         query, key, cos, sin, qout, kout, heads, key.shape[2], width, length,
-        batch * length, cos.shape[0] == 1, round_bf16, enable_fp_fusion=False)
+        batch * length, cos.shape[0] == 1, round_bf16, heads_per_tile,
+        enable_fp_fusion=False)
     return qout, kout
+
+
+def paired_rotary(query, key, cos, sin, *, round_bf16=False):
+    # In-graph replay cost (bench/rope_bench.py): at rows >= 16 the wide tile
+    # halves program count and beats the narrow tile at every measured shape;
+    # below 16 rows the iteration-002 width keeps C1-C8 graphs byte-identical.
+    rows = query.shape[0] * query.shape[1]
+    return _launch(query, key, cos, sin, 16 if rows >= 16 else 4, round_bf16)
+
+
+def paired_rotary_width(query, key, cos, sin, *, heads_per_tile, round_bf16=False):
+    """Explicit heads-per-tile variant for the diagnostic bench and the probe."""
+    return _launch(query, key, cos, sin, heads_per_tile, round_bf16)
 
 
 class PredictorAttention(torch.nn.Module):

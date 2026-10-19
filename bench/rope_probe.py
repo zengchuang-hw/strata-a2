@@ -20,7 +20,7 @@ def main():
     rows = []
     with torch.inference_mode():
         for width in (64, 128):
-            for batch in (1, 4, 32, 64):
+            for batch in (1, 4, 16, 32, 64):
                 for length in (1, 2):
                     for shared in (True, False):
                         query = torch.randn(batch, length, 16, width, device="npu:0", dtype=torch.bfloat16)
