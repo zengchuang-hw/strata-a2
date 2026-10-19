@@ -35,6 +35,55 @@ captures that own every tensor they touch. Strata was studied at
 `477ac13cbe8e582c20484871ce459d20d82df09d`; no Strata CUDA/MoE result is
 imported as Ascend evidence.
 
+## Performance
+
+### Controlled same-device result (formal evidence)
+
+Frozen campaign `formal-c003-01`: three alternating AB/BA repeat pairs on one
+physical Ascend 910B3, identical 128-request corpus, voices, sampling and
+BF16 weights; every matched pair produced **byte-identical PCM**; independent
+audit verdict **PASS** with `formal_coverage: true`
+([record](docs/iterations/003-wide-tiles.md)). Throughput = decoded audio
+seconds × 12.5 ÷ cohort wall time; the ratio is the conservative
+best-baseline / worst-candidate comparison.
+
+| C | baseline thr (mean of 3) | Strata-A2 thr (mean of 3) | min/max ratio | TTFA p95 ratio | verdict |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 62.19 | 71.18 | 1.1305 | 0.9416 | PASS |
+| 2 | 96.85 | 107.60 | 1.0904 | 0.9270 | PASS |
+| 4 | 156.40 | 175.33 | 1.1055 | 0.9152 | PASS |
+| 8 | 243.33 | 270.56 | 1.0911 | 0.8839 | PASS |
+| 16 | 356.10 | 395.75 | 1.0894 | 0.8425 | PASS |
+| 32 | 455.78 | 499.63 | 1.0703 | 1.0099 | PASS |
+| 64 | 575.28 | 640.54 | 1.0904 | 1.0243 | PASS |
+
+### Comparison with the published qwen3-tts-engine numbers
+
+The [qwen3-tts-engine README](https://github.com/InferMatrixLab/qwen3-tts-engine)
+publishes "Independent engine" results measured on **one Ascend 910B1** at
+engine revision `e783a64b0fb4f9ade2ffb3980b3e1f74a00c9a6a`, model revision
+`0c0e3051f131929182e2c023b9537f8b1c68adfe`, 128-request cohorts at
+C1–C64, three runs. Strata-A2 here measures a **910B3**. These are imported
+claims from a different hardware generation at a different revision — the
+comparison below is **indicative only, not a controlled experiment**; the
+controlled evidence is the same-device table above.
+
+| C | published thr (910B1) | Strata-A2 thr (910B3) | ratio | published TTFA p95 (ms) | Strata-A2 TTFA p95 (ms) | ratio | published RTF | Strata-A2 RTF |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 61.12 | 71.18 | 1.165 | 51.97 | 46.1 | 0.89 | 0.206 | 0.177 |
+| 2 | 95.72 | 107.60 | 1.124 | 79.76 | 70.1 | 0.88 | 0.261 | 0.233 |
+| 4 | 154.23 | 175.33 | 1.137 | 107.59 | 93.3 | 0.87 | 0.322 | 0.283 |
+| 8 | 231.65 | 270.56 | 1.168 | 162.26 | 136.5 | 0.84 | 0.424 | 0.359 |
+| 16 | 348.02 | 395.75 | 1.137 | 267.99 | 212.4 | 0.79 | 0.561 | 0.492 |
+| 32 | 439.73 | 499.63 | 1.136 | 489.36 | 461.6 | 0.94 | 0.813 | 0.725 |
+| 64 | 549.39 | 640.54 | 1.166 | 920.75 | 854.9 | 0.93 | 1.212 | 1.038 |
+
+Strata-A2's controlled same-device advantage over the pinned baseline
+(+7.0%…+13.1% throughput) is the audited claim; the 1.12–1.17× figure against
+the published 910B1 numbers is a cross-hardware observation and inherits every
+caveat of comparing runs from two machines (host sharing, sequential trials,
+different revisions). No upstream number was promoted to local validation.
+
 ## Iteration log
 
 | PR | Iteration | Result |
