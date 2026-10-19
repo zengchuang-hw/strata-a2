@@ -18,7 +18,10 @@ LOGGER = logging.getLogger(__name__)
 
 class NativeModel(ContinuousModel):
     def __init__(self, model_path, device, *, max_slots=64, max_frames=2048,
-                 text_capacity=256, codec_batch_size=4, prewarm_decode=False):
+                 text_capacity=256, codec_batch_size=4, prewarm_decode=False,
+                 predictor_rope="native"):
+        if predictor_rope not in {"native", "paired"}:
+            raise ValueError("predictor_rope must be native or paired")
         self.core = None
         super().__init__(
             model_path, device, max_slots=max_slots, pack_qkv=True,
@@ -31,6 +34,10 @@ class NativeModel(ContinuousModel):
             triton_snake=True, cache_codec_codebooks=True,
             codec_batch_size=codec_batch_size, triton_cdf=True,
         )
+        self.predictor_rope = predictor_rope
+        if predictor_rope == "paired":
+            from predictor_rope import install
+            self.paired_predictor_modules = install(self.talker.code_predictor)
         weight = next(self.talker.parameters())
         dim = self.talker.model.config.hidden_size
         vocab = self.talker.config.vocab_size

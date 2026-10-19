@@ -24,6 +24,7 @@ def main():
     p.add_argument("--slots", type=int, default=4)
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--cancel-and-reuse", action="store_true")
+    p.add_argument("--predictor-rope", choices=["native", "paired"], default="native")
     args = p.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     load_reference(args.reference_root)
@@ -34,7 +35,8 @@ def main():
 
     if args.engine == "native":
         from graph_model import NativeModel
-        model = NativeModel(str(args.model), "npu:0", max_slots=args.slots)
+        model = NativeModel(str(args.model), "npu:0", max_slots=args.slots,
+                            predictor_rope=args.predictor_rope)
     else:
         model = ContinuousModel(
             str(args.model), "npu:0", max_slots=args.slots, pack_qkv=True,
