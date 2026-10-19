@@ -85,7 +85,7 @@ def trial(args, arm, target):
         command = [sys.executable, str(ROOT / "serve" / "serve.py"),
                    "--reference-root", str(args.reference_root), "--native-build", str(args.native_build),
                    "--model", str(args.model), "--port", str(args.port), "--max-batch-size", "64",
-                   "--prewarm-decode"]
+                   "--prewarm-decode", "--predictor-rope", args.predictor_rope]
     record = {"arm": arm, "server_command": command, "server_exit": None,
               "status": "INCONCLUSIVE", "cohorts": []}
     write(target / "lifecycle.json", record)
@@ -160,6 +160,7 @@ def main():
     parser.add_argument("--port", type=int, default=8199)
     parser.add_argument("--readiness-timeout", type=float, default=900)
     parser.add_argument("--benchmark-timeout", type=float, default=3600)
+    parser.add_argument("--predictor-rope", choices=["native", "paired"], default="native")
     args = parser.parse_args()
     if (args.repetitions < 1 or args.requests < 1 or min(args.concurrencies) < 1
             or max(args.concurrencies) > 64 or len(set(args.concurrencies)) != len(args.concurrencies)

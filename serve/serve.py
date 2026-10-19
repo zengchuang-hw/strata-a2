@@ -33,6 +33,7 @@ def main():
     parser.add_argument("--queue-size", type=int, default=128)
     parser.add_argument("--prefill-per-tick", type=int, default=64)
     parser.add_argument("--prewarm-decode", action="store_true")
+    parser.add_argument("--predictor-rope", choices=["native", "paired"], default="native")
     options = parser.parse_args()
     if (options.max_batch_size < 1 or options.max_batch_size & (options.max_batch_size - 1)
             or options.queue_size < 1 or options.prefill_per_tick < 1
@@ -51,7 +52,8 @@ def main():
     factory = partial(NativeModel, max_slots=options.max_batch_size,
                       max_frames=options.max_new_tokens, text_capacity=options.text_capacity,
                       codec_batch_size=options.codec_batch_size,
-                      prewarm_decode=options.prewarm_decode)
+                      prewarm_decode=options.prewarm_decode,
+                      predictor_rope=options.predictor_rope)
     service = SpeechService(options, factory)
 
     async def bounded_speech(incoming):
