@@ -69,9 +69,60 @@ def main():
                                      "native_pair_us": round(native_us, 2),
                                      "paired_us": round(paired_us, 2)})
         torch.npu.synchronize()
+    graph_cases = []
+    graph_cls = getattr(torch.npu, "NPUGraph", None)
+    if graph_cls is not None:
+        with torch.inference_mode():
+            for width in (64, 128):
+                for batch in (16, 32, 64):
+                    for length in (1, 2):
+                        query = torch.randn(batch, length, 16, width, device="npu:0", dtype=torch.bfloat16)
+                        key = torch.randn(batch, length, 8, width, device="npu:0", dtype=torch.bfloat16)
+                        angle = torch.randn(1, length, width // 2, device="npu:0")
+                        cos = torch.cat((angle.cos(), angle.cos()), -1).bfloat16()
+                        sin = torch.cat((angle.sin(), angle.sin()), -1).bfloat16()
+
+                        def native():
+                            for t in (query, key):
+                                torch_npu.npu_rotary_mul(t, cos.unsqueeze(2), sin.unsqueeze(2))
+
+                        def capture(fn):
+                            stream = torch.npu.Stream(device=0)
+                            stream.wait_stream(torch.npu.current_stream())
+                            with torch.npu.stream(stream):
+                                for _ in range(3):
+                                    fn()
+                                torch.npu.synchronize()
+                                graph = graph_cls()
+                                graph.capture_begin()
+                                fn()
+                                graph.capture_end()
+                            torch.npu.current_stream().wait_stream(stream)
+                            torch.npu.synchronize()
+                            return graph
+
+                        def replay_us(graph):
+                            for _ in range(10):
+                                graph.replay()
+                            torch.npu.synchronize()
+                            start = time.perf_counter()
+                            for _ in range(args.repeats):
+                                graph.replay()
+                            torch.npu.synchronize()
+                            return (time.perf_counter() - start) / args.repeats * 1e6
+
+                        row = {"width": width, "batch": batch, "length": length,
+                               "native_pair_us": round(replay_us(capture(native)), 2)}
+                        for hpt in args.widths:
+                            graph = capture(lambda h=hpt: pr.paired_rotary_width(
+                                query, key, cos, sin, heads_per_tile=h))
+                            row[f"paired_hpt{hpt}_us"] = round(replay_us(graph), 2)
+                        graph_cases.append(row)
+            torch.npu.synchronize()
     result = {"status": "DIAGNOSTIC_ONLY",
               "scope": "per-launch rotary microbench + width exactness; not engine performance",
-              "vector_core_num": cores, "repeats": args.repeats, "cases": rows}
+              "vector_core_num": cores, "repeats": args.repeats, "cases": rows,
+              "graph_cases": graph_cases}
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2), flush=True)
 
