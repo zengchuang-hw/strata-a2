@@ -90,10 +90,21 @@ not relaxed after the runs.
 ## Port validation (this tree)
 
 The formal numbers above were measured on the pre-rename lineage. This port
-renames identifiers only; the port itself is re-validated before merge:
+renames identifiers only; the port itself was re-validated in the dedicated
+campaign container on the 910B3 device before merge:
 
-- [ ] `bench/rope_probe.py`: 32-case operator equivalence (unrounded exact,
-      BF16 counterexample non-exact) on the 910B3 device.
-- [ ] Complete-model paired probes (`--predictor-rope paired`): PCM hashes
-      byte-identical to the recorded reference evidence, plain and
-      cancel/reuse.
+- [x] `bench/rope_probe.py`: status PASS — 32/32 unrounded cases exactly equal
+      `npu_rotary_mul`; 32/32 `round_bf16=True` counterexample cases non-exact
+      (max abs error 0.03125), i.e. the rejected variant stays rejected.
+- [x] Complete-model paired probes (`--predictor-rope paired`): plain probe
+      ids 0/1/64/65 and cancel/reuse probe ids 0/64/65/2 all finished with
+      `stop`, streamed chunks equal final PCM, and every PCM SHA256 equals the
+      recorded reference evidence hashes — byte-identical in the paired mode.
+
+## Result (final)
+
+**Iteration 002 accepted as parent with the formal performance verdict
+attached: overall FAIL.** C1–C8 PASS the frozen gate with byte-identical
+audio; C16–C64 do not. The candidate remains in-tree because iteration 003
+optimizes exactly the measured regression (high-concurrency per-step
+latency); thresholds stay frozen.
