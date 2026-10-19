@@ -79,13 +79,34 @@ Completed in the dedicated campaign container on the 910B3 device:
       `stop` and every PCM SHA256 equals the recorded reference evidence
       hashes — byte-identical.
 
-## Formal cohort
+## Formal cohort (`formal-c003-01`)
 
-A fresh frozen campaign for this candidate (`formal-c003-01`, three alternating
-AB/BA pairs, C1/2/4/8/16/32/64, 128 requests, identity checks around every
-arm) is the acceptance evidence. Result recorded here when complete; missing
-results stay INCONCLUSIVE.
+Three alternating AB/BA pairs, C1/2/4/8/16/32/64, 128 requests per cohort,
+identity checks around every arm; independent `bench/assess.py` audit.
 
-## Result
+| C | reference thr (3 reps) | native thr (3 reps) | min-native/max-ref | TTFA p95 max-native/min-ref | verdict |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 61.19 / 62.80 / 62.59 | 71.00 / 71.25 / 71.30 | 1.1305 | 0.9416 | PASS |
+| 2 | 94.90 / 97.29 / 98.37 | 107.94 / 107.26 / 107.60 | 1.0904 | 0.9270 | PASS |
+| 4 | 153.73 / 157.75 / 157.72 | 176.35 / 174.39 / 175.26 | 1.1055 | 0.9152 | PASS |
+| 8 | 238.33 / 246.58 / 245.07 | 271.04 / 269.05 / 271.61 | 1.0911 | 0.8839 | PASS |
+| 16 | 348.57 / 359.51 / 360.22 | 396.04 / 392.42 / 398.80 | 1.0894 | 0.8425 | PASS |
+| 32 | 444.30 / 460.27 / 462.76 | 501.17 / 495.27 / 502.45 | 1.0703 | 1.0099 | PASS |
+| 64 | 561.80 / 581.48 / 582.57 | 642.85 / 635.21 / 643.55 | 1.0904 | 1.0243 | PASS |
 
-Pending formal cohort; this file is updated when it completes.
+Independent assessment verdict: **overall PASS** (`formal_coverage: true`,
+`relative_quality: PASS_EXACT_PCM`). Every concurrency clears the frozen gate
+(throughput +7.0%…+13.1%, TTFA p95 never regresses beyond 2.5%), and every
+matched pair is byte-identical PCM.
+
+## Result (final)
+
+**Iteration 003 accepted.** The wide-tile guard turns the paired rotary kernel
+from a C1–C8-only win into an every-concurrency win: the frozen formal cohort
+passes all seven concurrency levels against the pinned
+`qwen3-tts-engine@b4451682` reference on the same physical 910B3 device, with
+byte-identical audio. The campaign's performance objective (>5% throughput per
+qualified concurrency, ≤5% TTFA p95 regression) is met with formal evidence.
+Delivery gates (clean rebuild, evidence index) follow in the delivery
+iteration; no package publication or production activation is part of this
+campaign.
