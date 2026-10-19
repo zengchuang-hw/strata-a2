@@ -39,10 +39,50 @@ imported as Ascend evidence.
 
 | PR | Iteration | Result |
 | --- | --- | --- |
-| — | frozen contract and design | [docs/task-contract.md](docs/task-contract.md) |
+| — | frozen contract and design | [docs/task-contract.md](docs/task-contract.md), [docs/engine-design.md](docs/engine-design.md) |
+| pending | 001 bootstrap layered runtime | [docs/iterations/001-bootstrap.md](docs/iterations/001-bootstrap.md) |
 
 Each merged PR adds its row here and keeps a full record under
 [docs/iterations/](docs/iterations/).
+
+## Build and run
+
+Linux/aarch64 with PyTorch 2.10, torch_npu 2.10.0.post4, CANN 9.1,
+`qwen-tts==0.1.1`, transformers 4.57.3, Triton Ascend, C++17 and CMake
+(`requirements-a2.txt`). A pinned, clean
+[InferMatrixLab/qwen3-tts-engine](https://github.com/InferMatrixLab/qwen3-tts-engine)
+checkout at `b4451682abac651f26046f8d27467de3f007e1e7` supplies the model
+adapters and graph construction; the checkout is verified at startup and its
+Apache-2.0 files keep their attribution in [NOTICE.md](NOTICE.md).
+
+```bash
+cmake -S <repo> -B <build> -DPython3_EXECUTABLE=<venv>/bin/python -DCMAKE_BUILD_TYPE=Release
+cmake --build <build> -j 2
+export OMP_NUM_THREADS=4 HF_HUB_OFFLINE=1
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2
+export PYTHONPATH=<reference-checkout>:$PYTHONPATH
+
+# Native launcher: Python loads weights and captures graphs once,
+# the C++ main loop replays them and writes complete WAV files.
+<build>/strata-run --reference-root <reference-checkout> --model <model-dir> \
+  --workload <workload.jsonl> --slots 4 --requests 4 --output <outdir>
+
+# Protocol-compatible HTTP entrypoint on the same native C++ core.
+<venv>/bin/python serve/serve.py --reference-root <reference-checkout> \
+  --native-build <build> --model <model-dir> --max-batch-size 64 --prewarm-decode --port 8199
+```
+
+Compiled ownership tests need no NPU:
+
+```bash
+PYTHONPATH=<build>:$PYTHONPATH <venv>/bin/python tests/test_native_state.py -v
+```
+
+`bench/probe.py` compares complete generation and exercises cancellation/slot
+reuse; `bench/campaign.py` runs alternating reference/native HTTP trials and
+`bench/assess.py` audits the cohort evidence against the frozen gates. Probe
+and readiness timings include graph capture and are never benchmark results.
+
 
 ## Status
 

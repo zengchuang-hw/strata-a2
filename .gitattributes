@@ -1,0 +1,9 @@
+# Line endings are normalized to LF; the A2 build host and CI never see CRLF.
+* text=auto
+*.py text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
