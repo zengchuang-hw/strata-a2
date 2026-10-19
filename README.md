@@ -42,6 +42,7 @@ imported as Ascend evidence.
 | — | frozen contract and design | [docs/task-contract.md](docs/task-contract.md), [docs/engine-design.md](docs/engine-design.md) |
 | [#1](../../pull/1) | 001 bootstrap layered runtime | accepted: build + ownership tests + byte-identical probes ([record](docs/iterations/001-bootstrap.md)) |
 | [#3](../../pull/3) | 002 paired predictor rotary kernel | formal verdict FAIL overall — C1–C8 PASS (+5.0…+12.2%, byte-identical), C16–C64 FAIL; kept as parent ([record](docs/iterations/002-predictor-rotary.md)) |
+| [#4](../../pull/4) | 003 wide rotary tiles at rows≥16 | formal cohort running; correctness PASS ([record](docs/iterations/003-wide-tiles.md)) |
 
 Each merged PR adds its row here and keeps a full record under
 [docs/iterations/](docs/iterations/).
