@@ -40,7 +40,7 @@ imported as Ascend evidence.
 | PR | Iteration | Result |
 | --- | --- | --- |
 | — | frozen contract and design | [docs/task-contract.md](docs/task-contract.md), [docs/engine-design.md](docs/engine-design.md) |
-| pending | 001 bootstrap layered runtime | [docs/iterations/001-bootstrap.md](docs/iterations/001-bootstrap.md) |
+| [#1](../../pull/1) | 001 bootstrap layered runtime | accepted: build + ownership tests + byte-identical probes ([record](docs/iterations/001-bootstrap.md)) |
 
 Each merged PR adds its row here and keeps a full record under
 [docs/iterations/](docs/iterations/).

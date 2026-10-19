@@ -63,17 +63,29 @@ no kernel, scheduling or numeric change is intended in this iteration.
 
 ## Validation (this iteration)
 
-Recorded before merge, on one physical 910B3 device in the dedicated campaign
-container (see `docs/task-contract.md` for environment identity):
+Recorded before merge, in the dedicated campaign container on one physical
+910B3 device (environment identical to the frozen campaign: torch 2.10.0+cpu,
+torch_npu 2.10.0.post4, CANN 9.1.0, glibc `2.35-0ubuntu3.15`, pinned model
+assets; the formal C002 campaign had already completed, so the device was free):
 
-- [ ] Clean CMake build of `_strata_native` + `strata-run` (build log retained).
-- [ ] `tests/test_native_state.py`: compiled CPU ownership contracts pass.
-- [ ] 4-request native probe (mixed English/Chinese, indices 0/1/64/65 of the
-      frozen workload): EOS in every request, streamed chunks reconstruct the
-      final PCM, and every PCM SHA256 equals the recorded reference probe hash.
-- [ ] Cancellation/reuse probe: one live request cancelled, replacement
-      admitted, all surviving outputs byte-identical to reference.
+- [x] Clean CMake build of `_strata_native` + `strata-run`
+      (`cmake-configure.log`, `build.log`; only third-party torch_npu header
+      warnings, no errors; binaries `_strata_native.cpython-312-aarch64-linux-gnu.so`
+      and `strata-run` produced).
+- [x] `tests/test_native_state.py`: 3/3 compiled CPU ownership contracts pass.
+- [x] 4-request native probe (indices 0/1/64/65 of the frozen workload): EOS
+      (`stop`) everywhere, streamed chunks reconstruct the final PCM, and every
+      PCM SHA256 equals the recorded reference probe hash — byte-identical:
+      `cf44a9ce…`/`926a3bf5…`/`c077afd1…`/`0b63e4a7…` (88320/161280/264960/295680 bytes).
+- [x] Cancellation/reuse probe: request 1 cancelled live, request 2 admitted
+      into the vacated slot; all surviving/replacement outputs byte-identical
+      to the recorded reference cancellation probe:
+      `97fc0c6c…`/`cefe6b3b…`/`6cc0687e…`/`071ada22…`.
+- Probe JSON statuses stay `INCONCLUSIVE` by design (development probe, quality
+  not scored); byte-identity is what this iteration claims.
 
 ## Result
 
-Pending the validation runs above; this file is updated before merge.
+**Iteration 001 accepted.** Build and correctness re-validated in the renamed
+layered tree with byte-identical audio; the tree is frozen as the optimization
+parent for iteration 002. Performance is not claimed by this iteration.
