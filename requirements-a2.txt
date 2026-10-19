@@ -1,0 +1,6 @@
+# Install into a dedicated Ascend environment with the documented torch/CANN stack.
+qwen-tts==0.1.1
+transformers==4.57.3
+tokenizers>=0.22,<0.23
+aiohttp>=3.9
+numpy>=1.24
